@@ -33,22 +33,33 @@ def _ensure_dirs() -> None:
     PROFILES_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def profile_vcf_dir(name: str) -> Path:
-    d = PROFILES_DIR / name
+def _user_profiles_dir(username: Optional[str] = None) -> Path:
+    """Return the profiles directory, optionally scoped to a user."""
+    if username:
+        d = PROFILES_DIR / username
+    else:
+        d = PROFILES_DIR
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def profile_vcf_dir(name: str, username: Optional[str] = None) -> Path:
+    d = _user_profiles_dir(username) / name
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
 # ── Profile CRUD ───────────────────────────────────────────────────────────────
 
-def list_profiles() -> list[str]:
+def list_profiles(username: Optional[str] = None) -> list[str]:
     _ensure_dirs()
-    return sorted(p.stem for p in PROFILES_DIR.glob("*.json"))
+    d = _user_profiles_dir(username)
+    return sorted(p.stem for p in d.glob("*.json") if p.stem != "config")
 
 
-def load_profile(name: str) -> dict:
+def load_profile(name: str, username: Optional[str] = None) -> dict:
     _ensure_dirs()
-    path = PROFILES_DIR / f"{name}.json"
+    path = _user_profiles_dir(username) / f"{name}.json"
     if path.exists():
         try:
             return json.loads(path.read_text(encoding="utf-8"))
@@ -57,18 +68,19 @@ def load_profile(name: str) -> dict:
     return _empty_profile(name)
 
 
-def save_profile(name: str, data: dict) -> None:
+def save_profile(name: str, data: dict, username: Optional[str] = None) -> None:
     _ensure_dirs()
     data["name"] = name
     data["updated"] = datetime.now().isoformat()
-    path = PROFILES_DIR / f"{name}.json"
+    path = _user_profiles_dir(username) / f"{name}.json"
     path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
 
 
-def delete_profile(name: str) -> None:
+def delete_profile(name: str, username: Optional[str] = None) -> None:
     _ensure_dirs()
-    json_path = PROFILES_DIR / f"{name}.json"
-    vcf_dir = PROFILES_DIR / name
+    d = _user_profiles_dir(username)
+    json_path = d / f"{name}.json"
+    vcf_dir = d / name
     if json_path.exists():
         json_path.unlink()
     if vcf_dir.exists():
@@ -104,14 +116,34 @@ def save_config(config: dict) -> None:
     CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
 
 
-def get_api_key() -> str:
+def get_api_key(username: Optional[str] = None) -> str:
+    if username:
+        user_config = _user_profiles_dir(username) / "config.json"
+        if user_config.exists():
+            try:
+                return json.loads(user_config.read_text(encoding="utf-8")).get("api_key", "")
+            except Exception:
+                pass
+        return ""
     return load_config().get("api_key", "")
 
 
-def save_api_key(key: str) -> None:
-    config = load_config()
-    config["api_key"] = key.strip()
-    save_config(config)
+def save_api_key(key: str, username: Optional[str] = None) -> None:
+    if username:
+        d = _user_profiles_dir(username)
+        user_config = d / "config.json"
+        config = {}
+        if user_config.exists():
+            try:
+                config = json.loads(user_config.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        config["api_key"] = key.strip()
+        user_config.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    else:
+        config = load_config()
+        config["api_key"] = key.strip()
+        save_config(config)
 
 
 # ── VCF file management ────────────────────────────────────────────────────────
@@ -120,13 +152,14 @@ def save_vcf_for_profile(
     name: str,
     vcf_bytes: bytes,
     filename: str,
+    username: Optional[str] = None,
 ) -> tuple[str, bool]:
     """
     Write uploaded VCF bytes to the profile's storage directory.
     Attempts to create a tabix index automatically.
     Returns (vcf_path, tbi_created).
     """
-    dest_dir = profile_vcf_dir(name)
+    dest_dir = profile_vcf_dir(name, username=username)
     vcf_path = dest_dir / filename
     vcf_path.write_bytes(vcf_bytes)
     tbi_created = create_tabix_index(str(vcf_path))

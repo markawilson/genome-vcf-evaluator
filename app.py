@@ -21,12 +21,13 @@ from chat_engine import (
 )
 from claude_analyzer import GenomeAnalyzer
 from gene_panels import ALL_PANELS, GENE_COORDINATES, ANCESTRY_GENES, ANCESTRY_RSIDS
+from auth import register_user, verify_login, verify_admin, list_users, delete_user, reset_user_password
 from profile_manager import (
     list_profiles, load_profile, save_profile, delete_profile,
     save_vcf_for_profile, create_tabix_index, tabix_available,
     get_api_key, save_api_key,
     serialize_chat_display, serialize_api_messages, serialize_panel_variants,
-    PROFILES_DIR,
+    PROFILES_DIR, _user_profiles_dir,
 )
 from report import save_markdown_report
 from vcf_parser import VCFParser, VariantRecord
@@ -51,6 +52,55 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
+
+# ── Authentication ─────────────────────────────────────────────────────────────
+
+if "logged_in_user" not in st.session_state:
+    st.session_state["logged_in_user"] = None
+
+def _show_login_page():
+    st.markdown("## 🧬 Genome VCF Analyzer")
+    st.caption("Whole-genome variant analysis powered by Claude AI")
+    st.divider()
+
+    tab_login, tab_register = st.tabs(["Log in", "Create account"])
+
+    with tab_login:
+        with st.form("login_form"):
+            username = st.text_input("Username", key="login_user")
+            password = st.text_input("Password", type="password", key="login_pass")
+            submitted = st.form_submit_button("Log in", use_container_width=True)
+            if submitted:
+                if verify_login(username, password):
+                    st.session_state["logged_in_user"] = username.strip().lower()
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password.")
+
+    with tab_register:
+        with st.form("register_form"):
+            new_user = st.text_input("Choose a username", key="reg_user")
+            new_pass = st.text_input("Choose a password (min 6 chars)", type="password", key="reg_pass")
+            new_pass2 = st.text_input("Confirm password", type="password", key="reg_pass2")
+            reg_submitted = st.form_submit_button("Create account", use_container_width=True)
+            if reg_submitted:
+                if new_pass != new_pass2:
+                    st.error("Passwords do not match.")
+                else:
+                    ok, msg = register_user(new_user, new_pass)
+                    if ok:
+                        st.success(msg + " You can now log in.")
+                    else:
+                        st.error(msg)
+
+
+if st.session_state["logged_in_user"] is None:
+    _show_login_page()
+    st.stop()
+
+# The authenticated user — passed to all profile functions
+_AUTH_USER = st.session_state["logged_in_user"]
+
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 PANEL_ICONS = {
@@ -129,7 +179,7 @@ def _get_parser() -> Optional[VCFParser]:
 
 
 def _get_analyzer() -> Optional[GenomeAnalyzer]:
-    key = get_api_key() or os.environ.get("ANTHROPIC_API_KEY", "")
+    key = get_api_key(username=_AUTH_USER) or os.environ.get("ANTHROPIC_API_KEY", "")
     if key:
         return GenomeAnalyzer(api_key=key)
     return None
@@ -140,7 +190,7 @@ def _save_current_profile() -> None:
     name = st.session_state.get("current_profile")
     if not name:
         return
-    profile = load_profile(name)
+    profile = load_profile(name, username=_AUTH_USER)
     # Merge panel results
     for panel_name, analysis in st.session_state.get("panel_analyses", {}).items():
         variants = st.session_state.get("panel_variants", {}).get(panel_name, [])
@@ -164,12 +214,12 @@ def _save_current_profile() -> None:
     profile["ancestry_gene_variants"] = serialize_panel_variants(
         st.session_state.get("ancestry_gene_variants", [])
     )
-    save_profile(name, profile)
+    save_profile(name, profile, username=_AUTH_USER)
 
 
 def _load_profile_into_state(name: str) -> None:
     """Load saved profile data into session state."""
-    profile = load_profile(name)
+    profile = load_profile(name, username=_AUTH_USER)
     st.session_state["current_profile"] = name
     st.session_state["vcf_path"] = profile.get("vcf_path")
 
@@ -207,11 +257,22 @@ def _stream_to_placeholder(gen, placeholder) -> str:
 with st.sidebar:
     st.title("🧬 Genomic VCF Analyzer")
     st.caption("Whole-genome variant analysis · Claude AI")
+
+    # ── Logged-in user + logout ───────────────────────────────────────────────
+    col_user, col_logout = st.columns([3, 1])
+    with col_user:
+        st.caption(f"Logged in as **{_AUTH_USER}**")
+    with col_logout:
+        if st.button("↩", help="Log out", use_container_width=True):
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
+
     st.divider()
 
     # ── 1. Profile management ──────────────────────────────────────────────────
     st.subheader("👤 Profile")
-    profiles = list_profiles()
+    profiles = list_profiles(username=_AUTH_USER)
 
     col_sel, col_new = st.columns([3, 1])
     with col_sel:
@@ -243,7 +304,7 @@ with st.sidebar:
             if st.button("Create", use_container_width=True) and new_name.strip():
                 name = new_name.strip()
                 # Save to disk first so list_profiles() includes it on rerun
-                save_profile(name, load_profile(name))
+                save_profile(name, load_profile(name, username=_AUTH_USER), username=_AUTH_USER)
                 _load_profile_into_state(name)
                 st.session_state["creating_profile"] = False
                 st.session_state["show_vcf_upload"] = True
@@ -262,7 +323,7 @@ with st.sidebar:
         with col_del:
             if st.button("🗑 Delete", use_container_width=True,
                          help="Delete this profile and its data"):
-                delete_profile(selected_profile)
+                delete_profile(selected_profile, username=_AUTH_USER)
                 st.session_state["current_profile"] = None
                 st.session_state["vcf_path"] = None
                 st.rerun()
@@ -356,7 +417,7 @@ with st.sidebar:
                     parent_writable = os.access(str(p.parent), os.W_OK)
                     if not parent_writable:
                         profile_name = st.session_state.get("current_profile", "default")
-                        dest_dir = PROFILES_DIR / profile_name
+                        dest_dir = _user_profiles_dir(_AUTH_USER) / profile_name
                         dest_dir.mkdir(parents=True, exist_ok=True)
                         dest = dest_dir / p.name
                         if not dest.exists():
@@ -396,7 +457,7 @@ with st.sidebar:
             with st.spinner(f"Saving {vcf_upload.name}…"):
                 vcf_bytes = vcf_upload.read()
                 saved_path, tbi_ok = save_vcf_for_profile(
-                    profile_name, vcf_bytes, vcf_upload.name
+                    profile_name, vcf_bytes, vcf_upload.name, username=_AUTH_USER
                 )
                 st.session_state["vcf_path"] = saved_path
 
@@ -415,7 +476,7 @@ with st.sidebar:
 
     # ── 3. API key ─────────────────────────────────────────────────────────────
     st.subheader("🔑 API Key")
-    saved_key = get_api_key()
+    saved_key = get_api_key(username=_AUTH_USER)
     api_key = saved_key or os.environ.get("ANTHROPIC_API_KEY", "")
 
     if st.session_state["editing_api_key"] or not api_key:
@@ -428,7 +489,7 @@ with st.sidebar:
         col_save_key, col_cancel_key = st.columns(2)
         with col_save_key:
             if st.button("Save key", use_container_width=True) and new_key.strip():
-                save_api_key(new_key.strip())
+                save_api_key(new_key.strip(), username=_AUTH_USER)
                 api_key = new_key.strip()
                 st.session_state["editing_api_key"] = False
                 st.rerun()
@@ -468,6 +529,48 @@ with st.sidebar:
         st.caption("🔑 Enter API key above.")
     elif not selected_panels:
         st.caption("☑ Select at least one panel.")
+
+    # ── Admin panel ───────────────────────────────────────────────────────────
+    st.divider()
+    with st.expander("🔧 Admin", expanded=False):
+        if st.session_state.get("admin_verified"):
+            st.success("Admin access granted")
+            users = list_users()
+            st.caption(f"**{len(users)} registered user(s)**")
+            for u in users:
+                col_name, col_del = st.columns([3, 1])
+                with col_name:
+                    st.text(f"{u['username']} (joined {u['created'][:10]})")
+                with col_del:
+                    if st.button("🗑", key=f"del_user_{u['username']}",
+                                 help=f"Delete {u['username']}"):
+                        if u["username"] == _AUTH_USER:
+                            st.error("Cannot delete yourself.")
+                        else:
+                            delete_user(u["username"])
+                            st.success(f"Deleted {u['username']}")
+                            st.rerun()
+            st.divider()
+            st.caption("**Reset a user's password**")
+            reset_target = st.selectbox(
+                "User", [u["username"] for u in users],
+                key="reset_target", label_visibility="collapsed",
+            )
+            new_pw = st.text_input("New password", type="password", key="reset_pw")
+            if st.button("Reset password") and reset_target and new_pw:
+                ok, msg = reset_user_password(reset_target, new_pw)
+                if ok:
+                    st.success(msg)
+                else:
+                    st.error(msg)
+        else:
+            admin_pw = st.text_input("Admin password", type="password", key="admin_pw_input")
+            if st.button("Unlock"):
+                if verify_admin(admin_pw):
+                    st.session_state["admin_verified"] = True
+                    st.rerun()
+                else:
+                    st.error("Incorrect admin password.")
 
 
 # ── Disclaimer ─────────────────────────────────────────────────────────────────
