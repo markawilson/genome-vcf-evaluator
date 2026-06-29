@@ -1,0 +1,20 @@
+# Build artifacts
+dist/
+build/
+*.spec
+__pycache__/
+*.pyc
+
+# User data (VCF files, profiles, API keys)
+profiles/
+*.vcf
+*.vcf.gz
+*.vcf.gz.tbi
+
+# Cache
+.cache/
+db_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
