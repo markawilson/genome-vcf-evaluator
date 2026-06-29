@@ -67,7 +67,7 @@ def _show_login_page():
         padding: 2rem 0 0.5rem 0;
     }
     .login-header h1 {
-        font-size: 2.2rem;
+        font-size: 3.5rem;
         margin-bottom: 0.2rem;
     }
     .login-subtitle {
@@ -112,7 +112,7 @@ def _show_login_page():
         """, unsafe_allow_html=True)
 
         st.markdown('<div class="login-header"><h1>Varix</h1></div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-subtitle">Personal whole-genome variant analysis powered by AI</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Personal DNA analysis powered by AI</div>', unsafe_allow_html=True)
 
         tab_login, tab_register = st.tabs(["Log in", "Create account"])
 
