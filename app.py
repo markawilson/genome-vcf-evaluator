@@ -59,39 +59,93 @@ if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 
 def _show_login_page():
-    st.markdown("## 🧬 Genome VCF Analyzer")
-    st.caption("Whole-genome variant analysis powered by Claude AI")
-    st.divider()
+    # Inject login page styles
+    st.markdown("""
+    <style>
+    .login-header {
+        text-align: center;
+        padding: 2rem 0 0.5rem 0;
+    }
+    .login-header h1 {
+        font-size: 2.2rem;
+        margin-bottom: 0.2rem;
+    }
+    .login-subtitle {
+        text-align: center;
+        color: #888;
+        font-size: 0.95rem;
+        margin-bottom: 1.5rem;
+    }
+    .dna-art {
+        text-align: center;
+        font-size: 3.5rem;
+        letter-spacing: 0.3rem;
+        line-height: 1.2;
+        padding: 1rem 0;
+        opacity: 0.85;
+    }
+    .helix-row {
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: #4a9;
+        text-align: center;
+        line-height: 1.4;
+        letter-spacing: 0.15rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    tab_login, tab_register = st.tabs(["Log in", "Create account"])
+    # Spacer to push content down from top
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    with tab_login:
-        with st.form("login_form"):
-            username = st.text_input("Username", key="login_user")
-            password = st.text_input("Password", type="password", key="login_pass")
-            submitted = st.form_submit_button("Log in", use_container_width=True)
-            if submitted:
-                if verify_login(username, password):
-                    st.session_state["logged_in_user"] = username.strip().lower()
-                    st.rerun()
-                else:
-                    st.error("Invalid username or password.")
+    # Centered layout using columns
+    col_left, col_center, col_right = st.columns([1, 2, 1])
 
-    with tab_register:
-        with st.form("register_form"):
-            new_user = st.text_input("Choose a username", key="reg_user")
-            new_pass = st.text_input("Choose a password (min 6 chars)", type="password", key="reg_pass")
-            new_pass2 = st.text_input("Confirm password", type="password", key="reg_pass2")
-            reg_submitted = st.form_submit_button("Create account", use_container_width=True)
-            if reg_submitted:
-                if new_pass != new_pass2:
-                    st.error("Passwords do not match.")
-                else:
-                    ok, msg = register_user(new_user, new_pass)
-                    if ok:
-                        st.success(msg + " You can now log in.")
+    with col_center:
+        # DNA helix art
+        st.markdown("""
+        <div class="dna-art">🧬</div>
+        <div class="helix-row">
+        ╭─A══T─╮&nbsp;&nbsp;╭─G══C─╮&nbsp;&nbsp;╭─T══A─╮&nbsp;&nbsp;╭─C══G─╮<br>
+        ╰─T══A─╯&nbsp;&nbsp;╰─C══G─╯&nbsp;&nbsp;╰─A══T─╯&nbsp;&nbsp;╰─G══C─╯
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div class="login-header"><h1>Genome VCF Analyzer</h1></div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Whole-genome variant analysis powered by Claude AI</div>', unsafe_allow_html=True)
+
+        tab_login, tab_register = st.tabs(["Log in", "Create account"])
+
+        with tab_login:
+            with st.form("login_form"):
+                username = st.text_input("Username", key="login_user")
+                password = st.text_input("Password", type="password", key="login_pass")
+                submitted = st.form_submit_button("Log in", use_container_width=True, type="primary")
+                if submitted:
+                    if verify_login(username, password):
+                        st.session_state["logged_in_user"] = username.strip().lower()
+                        st.rerun()
                     else:
-                        st.error(msg)
+                        st.error("Invalid username or password.")
+
+        with tab_register:
+            with st.form("register_form"):
+                new_user = st.text_input("Choose a username", key="reg_user")
+                new_pass = st.text_input("Choose a password (min 6 chars)", type="password", key="reg_pass")
+                new_pass2 = st.text_input("Confirm password", type="password", key="reg_pass2")
+                reg_submitted = st.form_submit_button("Create account", use_container_width=True, type="primary")
+                if reg_submitted:
+                    if new_pass != new_pass2:
+                        st.error("Passwords do not match.")
+                    else:
+                        ok, msg = register_user(new_user, new_pass)
+                        if ok:
+                            st.success(msg + " You can now log in.")
+                        else:
+                            st.error(msg)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.caption("For research and educational purposes only. Not medical advice.")
 
 
 if st.session_state["logged_in_user"] is None:
