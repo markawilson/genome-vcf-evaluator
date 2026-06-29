@@ -112,7 +112,7 @@ def _show_login_page():
         """, unsafe_allow_html=True)
 
         st.markdown('<div class="login-header"><h1>Genome VCF Analyzer</h1></div>', unsafe_allow_html=True)
-        st.markdown('<div class="login-subtitle">Whole-genome variant analysis powered by Claude AI</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Personal whole-genome variant analysis powered by AI</div>', unsafe_allow_html=True)
 
         tab_login, tab_register = st.tabs(["Log in", "Create account"])
 
