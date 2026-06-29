@@ -34,7 +34,7 @@ from vcf_parser import VCFParser, VariantRecord
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Genomic VCF Analyzer",
+    page_title="Varix",
     page_icon="🧬",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -111,7 +111,7 @@ def _show_login_page():
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown('<div class="login-header"><h1>Genome VCF Analyzer</h1></div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-header"><h1>Varix</h1></div>', unsafe_allow_html=True)
         st.markdown('<div class="login-subtitle">Personal whole-genome variant analysis powered by AI</div>', unsafe_allow_html=True)
 
         tab_login, tab_register = st.tabs(["Log in", "Create account"])
@@ -309,7 +309,7 @@ def _stream_to_placeholder(gen, placeholder) -> str:
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.title("🧬 Genomic VCF Analyzer")
+    st.title("🧬 Varix")
     st.caption("Whole-genome variant analysis · Claude AI")
 
     # ── Logged-in user + logout ───────────────────────────────────────────────
@@ -1292,7 +1292,7 @@ with tab_summary:
 # ══ Tab 5: About ══════════════════════════════════════════════════════════════
 with tab_about:
     st.markdown(f"""
-## About the Genomic VCF Analyzer
+## About Varix
 
 This tool analyzes whole-genome VCF files against clinical gene panels,
 using **Claude claude-opus-4-7** (Anthropic) to interpret variants.
