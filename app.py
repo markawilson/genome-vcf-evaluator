@@ -27,7 +27,7 @@ from profile_manager import (
     save_vcf_for_profile, create_tabix_index, tabix_available,
     get_api_key, save_api_key,
     serialize_chat_display, serialize_api_messages, serialize_panel_variants,
-    PROFILES_DIR, _user_profiles_dir,
+    PROFILES_DIR, user_profiles_dir,
 )
 from report import save_markdown_report
 from vcf_parser import VCFParser, VariantRecord
@@ -417,7 +417,7 @@ with st.sidebar:
                     parent_writable = os.access(str(p.parent), os.W_OK)
                     if not parent_writable:
                         profile_name = st.session_state.get("current_profile", "default")
-                        dest_dir = _user_profiles_dir(_AUTH_USER) / profile_name
+                        dest_dir = user_profiles_dir(_AUTH_USER) / profile_name
                         dest_dir.mkdir(parents=True, exist_ok=True)
                         dest = dest_dir / p.name
                         if not dest.exists():

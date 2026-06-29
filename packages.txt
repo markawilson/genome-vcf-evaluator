@@ -1,7 +1,5 @@
 libhts-dev
 tabix
-libcurl4-openssl-dev
 libbz2-dev
 liblzma-dev
 zlib1g-dev
-build-essential

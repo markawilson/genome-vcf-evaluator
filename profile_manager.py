@@ -33,7 +33,7 @@ def _ensure_dirs() -> None:
     PROFILES_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _user_profiles_dir(username: Optional[str] = None) -> Path:
+def user_profiles_dir(username: Optional[str] = None) -> Path:
     """Return the profiles directory, optionally scoped to a user."""
     if username:
         d = PROFILES_DIR / username
@@ -44,7 +44,7 @@ def _user_profiles_dir(username: Optional[str] = None) -> Path:
 
 
 def profile_vcf_dir(name: str, username: Optional[str] = None) -> Path:
-    d = _user_profiles_dir(username) / name
+    d = user_profiles_dir(username) / name
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -53,13 +53,13 @@ def profile_vcf_dir(name: str, username: Optional[str] = None) -> Path:
 
 def list_profiles(username: Optional[str] = None) -> list[str]:
     _ensure_dirs()
-    d = _user_profiles_dir(username)
+    d = user_profiles_dir(username)
     return sorted(p.stem for p in d.glob("*.json") if p.stem != "config")
 
 
 def load_profile(name: str, username: Optional[str] = None) -> dict:
     _ensure_dirs()
-    path = _user_profiles_dir(username) / f"{name}.json"
+    path = user_profiles_dir(username) / f"{name}.json"
     if path.exists():
         try:
             return json.loads(path.read_text(encoding="utf-8"))
@@ -72,13 +72,13 @@ def save_profile(name: str, data: dict, username: Optional[str] = None) -> None:
     _ensure_dirs()
     data["name"] = name
     data["updated"] = datetime.now().isoformat()
-    path = _user_profiles_dir(username) / f"{name}.json"
+    path = user_profiles_dir(username) / f"{name}.json"
     path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
 
 
 def delete_profile(name: str, username: Optional[str] = None) -> None:
     _ensure_dirs()
-    d = _user_profiles_dir(username)
+    d = user_profiles_dir(username)
     json_path = d / f"{name}.json"
     vcf_dir = d / name
     if json_path.exists():
@@ -118,7 +118,7 @@ def save_config(config: dict) -> None:
 
 def get_api_key(username: Optional[str] = None) -> str:
     if username:
-        user_config = _user_profiles_dir(username) / "config.json"
+        user_config = user_profiles_dir(username) / "config.json"
         if user_config.exists():
             try:
                 return json.loads(user_config.read_text(encoding="utf-8")).get("api_key", "")
@@ -130,7 +130,7 @@ def get_api_key(username: Optional[str] = None) -> str:
 
 def save_api_key(key: str, username: Optional[str] = None) -> None:
     if username:
-        d = _user_profiles_dir(username)
+        d = user_profiles_dir(username)
         user_config = d / "config.json"
         config = {}
         if user_config.exists():
